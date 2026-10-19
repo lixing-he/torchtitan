@@ -16,11 +16,16 @@ import unittest
 from types import SimpleNamespace
 
 try:
+    import importlib.util
     import sys
     from unittest.mock import MagicMock
 
-    # triton is Linux-only; stub it so MoE kernel imports don't crash on Windows
-    if "triton" not in sys.modules:
+    # triton is Linux-only; stub it so MoE kernel imports don't crash on Windows.
+    # Only stub when triton is genuinely not installed: the original check
+    # ``"triton" not in sys.modules`` tests whether triton has been *loaded*, so an
+    # installed-but-not-yet-imported triton is misdetected and stubbed, polluting
+    # sys.modules and causing the whole test class to be skipped.
+    if importlib.util.find_spec("triton") is None:
         sys.modules["triton"] = MagicMock()
         sys.modules["triton.language"] = MagicMock()
 
