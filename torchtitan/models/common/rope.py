@@ -352,6 +352,20 @@ def _reshape_for_broadcast(
     positions: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Reshape a RoPE cache for broadcasting with query/key tensors."""
+    if rope_cache.is_complex():
+        # Some devices do not support complex64 in selection ops (gather / index).
+        # Split the complex cache into real/imaginary parts, recurse through the same
+        # path for each, then recombine. Every path below is a pure selection with no
+        # arithmetic, so the two parts are independent and the result is numerically
+        # identical to selecting from the complex tensor directly.
+        real = _reshape_for_broadcast(
+            rope_cache.real.contiguous(), query_shape, positions
+        )
+        imag = _reshape_for_broadcast(
+            rope_cache.imag.contiguous(), query_shape, positions
+        )
+        return torch.complex(real, imag)
+
     ndim = len(query_shape)
     assert ndim > 1
     bsz, seqlen = query_shape[:2]
